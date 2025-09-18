@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Go WASM Multi-Dice Roller</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>Polyhedral Dice Roller</h1>
+
+<label>Number of dice: <input id="numDice" type="number" value="1" min="1" max="100"/></label><br>
+<label>Choose dice: 
+    <select id="dice">
+        <option value="4">d4</option>
+        <option value="6">d6</option>
+        <option value="8">d8</option>
+        <option value="10">d10</option>
+        <option value="12">d12</option>
+        <option value="20">d20</option>
+        <option value="100">d100</option>
+    </select>
+</label><br>
+<button id="roll">Roll!</button>
+
+<div class="dice-container" id="diceContainer"></div>
+<pre id="out"></pre>
+
+<script src="wasm_exec.js"></script>
+<script>
+const go = new Go();
+
+async function loadWASM() {
+    const resp = await fetch('main.wasm');
+    const bytes = await resp.arrayBuffer();
+    const result = await WebAssembly.instantiate(bytes, go.importObject);
+    go.run(result.instance);
+
+    document.getElementById('out').textContent = "WASM loaded and ready";
+
+    document.getElementById('roll').addEventListener('click', () => {
+        const sides = parseInt(document.getElementById('dice').value, 10);
+        const numDice = parseInt(document.getElementById('numDice').value, 10) || 1;
+        const container = document.getElementById('diceContainer');
+        container.innerHTML = "";
+
+        const diceElements = [];
+
+        for(let i=0;i<numDice;i++){
+            if(sides === 100){
+                // Two d10s for d100
+                const wrapper = document.createElement('div');
+                wrapper.className = 'd100-wrapper';
+
+                const tensDie = document.createElement('div');
+                tensDie.className = 'dice';
+                const tensImg = document.createElement('img');
+                tensImg.src = 'assets/d10.png';
+                const tensSpan = document.createElement('span');
+                tensSpan.textContent = '?';
+                tensDie.appendChild(tensImg);
+                tensDie.appendChild(tensSpan);
+
+                const onesDie = document.createElement('div');
+                onesDie.className = 'dice';
+                const onesImg = document.createElement('img');
+                onesImg.src = 'assets/d10.png';
+                const onesSpan = document.createElement('span');
+                onesSpan.textContent = '?';
+                onesDie.appendChild(onesImg);
+                onesDie.appendChild(onesSpan);
+
+                wrapper.appendChild(tensDie);
+                wrapper.appendChild(onesDie);
+                container.appendChild(wrapper);
+                diceElements.push([tensSpan, onesSpan]);
+            } else {
+                const d = document.createElement('div');
+                d.className = 'dice';
+                const img = document.createElement('img');
+                img.src = `assets/d${sides}.png`;
+                const span = document.createElement('span');
+                span.textContent = '?';
+                d.appendChild(img);
+                d.appendChild(span);
+                container.appendChild(d);
+                diceElements.push([span]);
+            }
+        }
+
+        // Animate rolling
+        const duration = 1000;
+        const intervalTime = 50;
+        const start = Date.now();
+
+        const animate = setInterval(()=>{
+            diceElements.forEach(dPair => {
+                dPair.forEach(d => d.textContent = Math.floor(Math.random() * (dPair.length === 2 ? 10 : sides) + 1));
+            });
+            if(Date.now() - start > duration){
+                clearInterval(animate);
+                const results = rollMultipleDice(numDice, sides);
+                diceElements.forEach((dPair, i)=>{
+                    if(sides === 100){
+                        const tens = Math.floor(results[i]/10);
+                        const ones = results[i] % 10;
+                        dPair[0].textContent = tens;
+                        dPair[1].textContent = ones;
+                    } else {
+                        dPair[0].textContent = results[i];
+                    }
+                });
+                document.getElementById('out').textContent = `Total: ${results.reduce((a,b)=>a+b,0)}`;
+            }
+        }, intervalTime);
+    });
+}
+
+loadWASM().catch(e => console.error(e));
+</script>
+</body>
+</html>

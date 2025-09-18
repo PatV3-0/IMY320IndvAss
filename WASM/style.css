@@ -1,0 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cinzel:wght@600&display=swap');
+
+body {
+    font-family: 'Cinzel', serif;
+    background: url('https://www.transparenttextures.com/patterns/parchment.png');
+    color: #2b1d0e;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+h1 {
+    margin-top: 40px;
+    font-size: 3rem;
+    text-align: center;
+    font-family: 'MedievalSharp', cursive;
+    color: #5a0e0e;
+    text-shadow: 2px 2px 6px rgba(0,0,0,0.6);
+    border-bottom: 4px double #5a0e0e;
+    padding-bottom: 10px;
+}
+
+.controls {
+    background: rgba(255, 248, 220, 0.85); /* parchment card */
+    padding: 20px 30px;
+    margin-top: 20px;
+    border-radius: 12px;
+    border: 2px solid #5a0e0e;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    min-width: 300px;
+}
+
+label {
+    font-size: 1.1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Cinzel', serif;
+}
+
+input[type="number"],
+select {
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-left: 5px;
+    text-align: center;
+    border: 2px solid #5a0e0e;
+    font-size: 1rem;
+    font-family: 'Cinzel', serif;
+    outline: none;
+    background: #fff8dc;
+    color: #2b1d0e;
+}
+
+button {
+    padding: 12px 20px;
+    background: #5a0e0e;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-family: 'MedievalSharp', cursive;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 8px rgba(90,14,14,0.6);
+}
+
+button:hover {
+    background: #8b0000;
+    box-shadow: 0 0 12px rgba(139,0,0,0.8);
+    transform: scale(1.05);
+}
+
+#out {
+    margin-top: 20px;
+    font-size: 1.3rem;
+    font-weight: bold;
+    background: rgba(255, 248, 220, 0.9);
+    padding: 12px 24px;
+    border-radius: 10px;
+    border: 2px solid #5a0e0e;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    font-family: 'MedievalSharp', cursive;
+    color: #2b1d0e;
+}
+
+.dice-container {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 60px;
+    justify-content: center;
+    gap: 25px;
+}
+
+.dice {
+    position: relative;
+    width: 300px;
+    height: 350px;
+    margin: -60;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 2rem;
+    color: #333333;
+    text-shadow: 1px 1px 0.5px #33333320;
+    transition: transform 0.3s;
+    border: 3px solid #5a0e0e;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(90,14,14,0.7);
+}
+
+.dice img {
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+}
+
+.dice span {
+    position: absolute;
+    font-family: 'MedievalSharp', cursive;
+    font-size: 2rem;
+    text-shadow: 2px 2px 6px black;
+}
+
+.dice:hover {
+    transform: rotate(-2deg) scale(1.05);
+    box-shadow: 0 0 20px rgba(139,0,0,0.9);
+}
+
+.d100-wrapper {
+    display: flex;
+    gap: 5px;
+}

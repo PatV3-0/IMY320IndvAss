@@ -4,30 +4,158 @@
     <meta charset="utf-8"/>
     <title>Go WASM Multi-Dice Roller</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <h1>Polyhedral Dice Roller</h1>
-
-<label>Number of dice: <input id="numDice" type="number" value="1" min="1" max="100"/></label><br>
-<label>Choose dice: 
-    <select id="dice">
-        <option value="4">d4</option>
-        <option value="6">d6</option>
-        <option value="8">d8</option>
-        <option value="10">d10</option>
-        <option value="12">d12</option>
-        <option value="20">d20</option>
-        <option value="100">d100</option>
-    </select>
-</label><br>
-<button id="roll">Roll!</button>
-
-<div class="dice-container" id="diceContainer"></div>
-<pre id="out"></pre>
+<div class="main-layout">
+    <div class="control-panel">
+        <div class="upper">
+            <label>Number of dice: <input id="numDice" type="number" value="1" min="1" max="100"/></label><br>
+            <label>Choose dice: 
+                <select id="dice">
+                    <option value="4">d4</option>
+                    <option value="6">d6</option>
+                    <option value="8">d8</option>
+                    <option value="10">d10</option>
+                    <option value="12">d12</option>
+                    <option value="20">d20</option>
+                    <option value="100">d100</option>
+                </select>
+            </label><br>
+            <button id="roll">Roll!</button>
+        </div>
+        <div class="dice-container" id="diceContainer"></div>
+        <div class="res">
+            <pre id="out"></pre>
+        </div>
+    </div>
+    <div class="chart-panel">
+        <canvas id="probChart" width="150" height="150"></canvas>
+        <canvas id="historyChart" width="150" height="150"></canvas>
+    </div>
+</div>
 
 <script src="wasm_exec.js"></script>
 <script>
 const go = new Go();
+let probChart = null;
+let historyChart = null;
+let rollHistory = [];
+let diceElements = [];
+
+function updateProbChart(sides, numDice, highlightValues = []) {
+    const labels = [];
+    const probabilities = [];
+
+    if (numDice === 1) {
+        for (let i = 1; i <= sides; i++) {
+            labels.push(i);
+            probabilities.push(1 / sides);
+        }
+    } else {
+        const min = numDice;
+        const max = numDice * sides;
+        const counts = {};
+
+        function rollDice(n, total) {
+            if (n === 0) {
+                counts[total] = (counts[total] || 0) + 1;
+                return;
+            }
+            for (let i = 1; i <= sides; i++) {
+                rollDice(n - 1, total + i);
+            }
+        }
+        rollDice(numDice, 0);
+
+        const totalCombos = Math.pow(sides, numDice);
+        for (let i = min; i <= max; i++) {
+            labels.push(i);
+            probabilities.push((counts[i] || 0) / totalCombos);
+        }
+    }
+
+    const bgColors = labels.map(l => highlightValues.includes(l) 
+        ? 'rgba(218, 165, 32, 0.8)'
+        : 'rgba(139, 0, 0, 0.6)');
+
+    const borderColors = labels.map(l => highlightValues.includes(l) 
+        ? 'rgba(218, 165, 32, 1)'
+        : 'rgba(139, 0, 0, 1)');
+
+    if (probChart) {
+        probChart.data.labels = labels;
+        probChart.data.datasets[0].data = probabilities;
+        probChart.data.datasets[0].label = `Theoretical Probability (d${sides}, ${numDice} dice)`;
+        probChart.data.datasets[0].backgroundColor = bgColors;
+        probChart.data.datasets[0].borderColor = borderColors;
+        probChart.update();
+    } else {
+        const ctx = document.getElementById('probChart').getContext('2d');
+        probChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `Theoretical Probability (d${sides}, ${numDice} dice)`,
+                    data: probabilities,
+                    backgroundColor: bgColors,
+                    borderColor: borderColors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: val => (val * 100).toFixed(1) + '%'
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+function updateHistoryChart(results, sides) {
+    rollHistory.push(...results);
+
+    const counts = {};
+    rollHistory.forEach(r => {
+        counts[r] = (counts[r] || 0) + 1;
+    });
+
+    const labels = Array.from({length: sides}, (_, i) => i + 1);
+    const data = labels.map(side => counts[side] || 0);
+
+    if (historyChart) {
+        historyChart.data.labels = labels;
+        historyChart.data.datasets[0].data = data;
+        historyChart.update();
+    } else {
+        const ctx = document.getElementById('historyChart').getContext('2d');
+        historyChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `Empirical Results (History of rolls)`,
+                    data: data,
+                    backgroundColor: 'rgba(90, 14, 14, 0.7)',
+                    borderColor: 'rgba(90, 14, 14, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+}
 
 async function loadWASM() {
     const resp = await fetch('main.wasm');
@@ -43,11 +171,10 @@ async function loadWASM() {
         const container = document.getElementById('diceContainer');
         container.innerHTML = "";
 
-        const diceElements = [];
+        diceElements = [];
 
         for(let i=0;i<numDice;i++){
             if(sides === 100){
-                // Two d10s for d100
                 const wrapper = document.createElement('div');
                 wrapper.className = 'd100-wrapper';
 
@@ -72,6 +199,10 @@ async function loadWASM() {
                 wrapper.appendChild(tensDie);
                 wrapper.appendChild(onesDie);
                 container.appendChild(wrapper);
+
+                tensDie.addEventListener('click',()=>animateSingleDie(tensSpan,10));
+                onesDie.addEventListener('click',()=>animateSingleDie(onesSpan,10));
+
                 diceElements.push([tensSpan, onesSpan]);
             } else {
                 const d = document.createElement('div');
@@ -83,36 +214,57 @@ async function loadWASM() {
                 d.appendChild(img);
                 d.appendChild(span);
                 container.appendChild(d);
+
+                d.addEventListener('click',()=>animateSingleDie(span,sides));
+
                 diceElements.push([span]);
             }
         }
-
-        // Animate rolling
-        const duration = 1000;
-        const intervalTime = 50;
-        const start = Date.now();
-
-        const animate = setInterval(()=>{
-            diceElements.forEach(dPair => {
-                dPair.forEach(d => d.textContent = Math.floor(Math.random() * (dPair.length === 2 ? 10 : sides) + 1));
-            });
-            if(Date.now() - start > duration){
-                clearInterval(animate);
-                const results = rollMultipleDice(numDice, sides);
-                diceElements.forEach((dPair, i)=>{
-                    if(sides === 100){
-                        const tens = Math.floor(results[i]/10);
-                        const ones = results[i] % 10;
-                        dPair[0].textContent = tens;
-                        dPair[1].textContent = ones;
-                    } else {
-                        dPair[0].textContent = results[i];
-                    }
-                });
-                document.getElementById('out').textContent = `Total: ${results.reduce((a,b)=>a+b,0)}`;
-            }
-        }, intervalTime);
+        animateAllDice(diceElements,sides,numDice);
     });
+}
+
+function animateSingleDie(span,sides){
+    const duration=500, intervalTime=50, start=Date.now();
+    const interval=setInterval(()=>{
+        span.textContent=Math.floor(Math.random()*sides)+1;
+        if(Date.now()-start>duration){
+            clearInterval(interval);
+            const newVal = rollMultipleDice(1,sides)[0];
+            span.textContent = newVal;
+            updateTotalAndHistory();
+        }
+    },intervalTime);
+}
+
+function animateAllDice(diceElements,sides,numDice){
+    const duration=1000, intervalTime=50, start=Date.now();
+    const animate=setInterval(()=>{
+        diceElements.forEach(dPair=>dPair.forEach(d=>d.textContent=Math.floor(Math.random()*(dPair.length===2?10:sides)+1)));
+        if(Date.now()-start>duration){
+            clearInterval(animate);
+            const results=rollMultipleDice(numDice,sides);
+            diceElements.forEach((dPair,i)=>{
+                if(sides===100){ dPair[0].textContent=Math.floor(results[i]/10); dPair[1].textContent=results[i]%10; }
+                else dPair[0].textContent=results[i];
+            });
+            updateTotalAndHistory();
+            updateProbChart(sides, numDice, [total]);
+        }
+    },intervalTime);
+}
+
+function updateTotalAndHistory(){
+    const sides = parseInt(document.getElementById('dice').value,10);
+    const numDice = parseInt(document.getElementById('numDice').value, 10) || 1;
+    const results = diceElements.map(dPair=>{
+        if(dPair.length===2) return parseInt(dPair[0].textContent)*10+parseInt(dPair[1].textContent);
+        return parseInt(dPair[0].textContent);
+    });
+    const total = results.reduce((a,b)=>a+b,0);
+    document.getElementById('out').textContent = `Total: ${results.reduce((a,b)=>a+b,0)}`;
+    updateProbChart(sides, numDice, [total]);
+    updateHistoryChart(results,sides);
 }
 
 loadWASM().catch(e => console.error(e));
